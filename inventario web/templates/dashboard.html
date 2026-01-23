@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Panel Profesional - Inventario</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</head>
+<body>
+
+<div class="layout">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <h2>📦 InventarioPro</h2>
+        <p>Bienvenido, {{ user }}</p>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/logout">Cerrar sesión</a>
+    </div>
+
+    <!-- CONTENIDO -->
+    <div class="main">
+
+        <h1>Panel de Control</h1>
+
+        <!-- ESTADÍSTICAS -->
+        <div class="stats">
+            <div class="stat-card">
+                <h3>Total Productos</h3>
+                <p>{{ products|length }}</p>
+            </div>
+<div class="card">
+    <h2>📊 Visualización de Stock</h2>
+    <canvas id="stockChart"></canvas>
+</div>
+
+            <div class="stat-card">
+                <h3>Total Unidades</h3>
+                <p>
+                {% set total = namespace(value=0) %}
+                {% for p in products %}
+                    {% set total.value = total.value + p[2] %}
+                {% endfor %}
+                {{ total.value }}
+                </p>
+            </div>
+        </div>
+
+        <!-- AGREGAR PRODUCTO -->
+        <div class="card">
+            <h2>Agregar Producto</h2>
+            <form action="/add_product" method="POST" class="form-inline">
+                <input type="text" name="name" placeholder="Nombre del producto" required>
+                <input type="number" name="quantity" placeholder="Cantidad" required>
+                <button type="submit">Agregar</button>
+            </form>
+        </div>
+
+        <!-- TABLA INVENTARIO -->
+        <div class="card">
+            <h2>Stock Actual</h2>
+
+            <input type="text" id="searchInput" placeholder="Buscar producto..." 
+                   onkeyup="searchProduct()" class="search-input">
+
+            <table id="productTable">
+                <tr>
+                    <th>Producto</th>
+                    <th>Cantidad</th>
+                    <th>Acción</th>
+                </tr>
+
+                {% for product in products %}
+                <tr class="{% if product[2] < 5 %}low-stock{% endif %}">
+                    <td>{{ product[1] }}</td>
+                    <td>
+                        <form action="/edit/{{ product[0] }}" method="POST" class="edit-form">
+                            <input type="number" name="quantity" value="{{ product[2] }}" min="0">
+                            <button type="submit">Actualizar</button>
+                        </form>
+                    </td>
+                    <td>
+                        <a href="/delete/{{ product[0] }}" 
+                           class="delete-btn"
+                           onclick="return confirm('¿Seguro que querés eliminar este producto?')">
+                           Eliminar
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+
+        <script>
+function sendMessage() {
+    const input = document.getElementById("user-input");
+    const box = document.getElementById("chat-box");
+
+    const message = input.value.trim();
+    if (message === "") return;
+
+    // Mensaje usuario
+    box.innerHTML += `
+        <div class="user">
+            ${message}
+        </div>
+    `;
+
+    let respuesta = "No entendí 🤔 Probá escribir 'ayuda'.";
+
+    const msg = message.toLowerCase();
+
+    if (msg.includes("hola")) {
+        respuesta = "Hola 👋 Soy tu asistente de inventario.";
+    }
+    else if (msg.includes("total productos")) {
+        respuesta = "Tenés {{ products|length }} productos registrados.";
+    }
+    else if (msg.includes("stock bajo")) {
+        respuesta = "Los productos en rojo tienen menos de 5 unidades.";
+    }
+    else if (msg.includes("ayuda")) {
+        respuesta = "Podés preguntarme: total productos, stock bajo, ayuda.";
+    }
+
+    // Mensaje bot
+    box.innerHTML += `
+        <div class="bot">
+            ${respuesta}
+        </div>
+    `;
+
+    input.value = "";
+    box.scrollTop = box.scrollHeight;
+}
+</script>
+
+
+        <footer>
+            Sistema desarrollado en Flask • 2026
+        </footer>
+
+    </div>
+
+</div>
+
+<script>
+
+function searchProduct() {
+    let input = document.getElementById("searchInput");
+    let filter = input.value.toLowerCase();
+    let table = document.getElementById("productTable");
+    let tr = table.getElementsByTagName("tr");
+
+    for (let i = 1; i < tr.length; i++) {
+        let td = tr[i].getElementsByTagName("td")[0];
+        if (td) {
+            let txtValue = td.textContent || td.innerText;
+            tr[i].style.display = txtValue.toLowerCase().includes(filter) ? "" : "none";
+        }
+    }
+}
+
+function sendMessage() {
+    let input = document.getElementById("user-input");
+    let message = input.value.toLowerCase();
+    let chatBox = document.getElementById("chat-box");
+
+    if (message.trim() === "") return;
+
+    chatBox.innerHTML += "<div class='user'>" + message + "</div>";
+
+    let response = "";
+
+    if (message.includes("hola")) {
+        response = "Hola 👋 Soy tu asistente de inventario.";
+    }
+    else if (message.includes("total productos")) {
+        response = "Tenés {{ products|length }} productos registrados.";
+    }
+    else if (message.includes("total unidades")) {
+        response = "Revisá la tarjeta superior para ver el total de unidades.";
+    }
+    else if (message.includes("stock bajo")) {
+        response = "Los productos en rojo tienen menos de 5 unidades.";
+    }
+    else if (message.includes("agregar")) {
+        response = "Podés agregar productos desde el formulario superior.";
+    }
+    else if (message.includes("eliminar")) {
+        response = "Podés eliminar un producto desde el botón rojo en la tabla.";
+    }
+    else if (message.includes("ayuda")) {
+        response = "Comandos disponibles: hola, total productos, total unidades, stock bajo, agregar, eliminar.";
+    }
+    else {
+        response = "No entendí 🤔 Escribí 'ayuda' para ver opciones.";
+    }
+
+    chatBox.innerHTML += "<div class='bot'>" + response + "</div>";
+    input.value = "";
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+</script>
+
+</body>
+</html>
