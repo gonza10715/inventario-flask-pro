@@ -1,18 +1,55 @@
-from flask import Flask, render_template, request, redirect, session, jsonify
+import os
+import secrets
 import sqlite3
+from functools import wraps
+
+from flask import Flask, abort, jsonify, redirect, render_template, request, session, url_for
+from werkzeug.security import check_password_hash, generate_password_hash
 
 app = Flask(__name__)
-app.secret_key = "clave_super_secreta"
+secret = os.environ.get("FLASK_SECRET_KEY")
+if not secret:
+    # A fresh development-only key; sessions expire on restart.
+    secret = secrets.token_hex(32)
+app.config.update(
+    SECRET_KEY=secret,
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+)
 
 
-# ---------------- CONEXIÓN DB ----------------
 def get_db():
     conn = sqlite3.connect("database.db")
     conn.row_factory = sqlite3.Row
     return conn
 
 
-# ---------------- LOGIN ----------------
+def csrf_token():
+    if "_csrf_token" not in session:
+        session["_csrf_token"] = secrets.token_urlsafe(32)
+    return session["_csrf_token"]
+
+
+app.jinja_env.globals["csrf_token"] = csrf_token
+
+
+@app.before_request
+def csrf_protect():
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+        submitted = request.form.get("_csrf_token") or request.headers.get("X-CSRF-Token")
+        if not submitted or not secrets.compare_digest(submitted, session.get("_csrf_token", "")):
+            abort(400, description="Token de formulario inválido. Actualizá la página.")
+
+
+def login_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if "user" not in session:
+            return redirect(url_for("home"))
+        return view(*args, **kwargs)
+    return wrapped
+
+
 @app.route("/")
 def home():
     return render_template("login.html")
@@ -20,24 +57,24 @@ def home():
 
 @app.route("/login", methods=["POST"])
 def login():
-    username = request.form.get("username")
-    password = request.form.get("password")
+    username = (request.form.get("username") or "").strip()
+    password = request.form.get("password") or ""
+    with get_db() as conn:
+        user = conn.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
+        if not user:
+            return "Usuario o contraseña incorrectos", 401
+        stored = user["password"]
+        valid = check_password_hash(stored, password) if stored.startswith(("scrypt:", "pbkdf2:")) else secrets.compare_digest(stored, password)
+        if not valid:
+            return "Usuario o contraseña incorrectos", 401
+        # One-time migration for existing local demo users with plaintext passwords.
+        if not stored.startswith(("scrypt:", "pbkdf2:")):
+            conn.execute("UPDATE users SET password=? WHERE id=?", (generate_password_hash(password), user["id"]))
+    session.clear()
+    session["user"] = username
+    return redirect(url_for("dashboard"))
 
-    conn = get_db()
-    user = conn.execute(
-        "SELECT * FROM users WHERE username=? AND password=?",
-        (username, password)
-    ).fetchone()
-    conn.close()
 
-    if user:
-        session["user"] = user["username"]
-        return redirect("/dashboard")
-    else:
-        return "Usuario o contraseña incorrectos"
-
-
-# ---------------- REGISTER ----------------
 @app.route("/register")
 def register():
     return render_template("register.html")
@@ -45,145 +82,92 @@ def register():
 
 @app.route("/register_user", methods=["POST"])
 def register_user():
-    username = request.form.get("username")
-    password = request.form.get("password")
-
-    conn = get_db()
+    username = (request.form.get("username") or "").strip()
+    password = request.form.get("password") or ""
+    if not (3 <= len(username) <= 50) or len(password) < 12:
+        return "Usuario de 3 a 50 caracteres y contraseña de al menos 12 caracteres", 400
     try:
-        conn.execute(
-            "INSERT INTO users (username, password) VALUES (?, ?)",
-            (username, password)
-        )
-        conn.commit()
+        with get_db() as conn:
+            conn.execute("INSERT INTO users (username, password) VALUES (?, ?)",
+                         (username, generate_password_hash(password)))
     except sqlite3.IntegrityError:
-        conn.close()
-        return "Usuario ya existe"
-
-    conn.close()
-    return redirect("/")
+        return "Usuario ya existe", 409
+    return redirect(url_for("home"))
 
 
-# ---------------- DASHBOARD ----------------
 @app.route("/dashboard")
+@login_required
 def dashboard():
-    if "user" not in session:
-        return redirect("/")
-
-    conn = get_db()
-    products = conn.execute("SELECT * FROM products").fetchall()
-    conn.close()
-
-    return render_template(
-        "dashboard.html",
-        products=products,
-        user=session["user"]
-    )
+    with get_db() as conn:
+        products = conn.execute("SELECT * FROM products").fetchall()
+    return render_template("dashboard.html", products=products, user=session["user"])
 
 
-# ---------------- AGREGAR PRODUCTO ----------------
+def validated_quantity():
+    try:
+        quantity = int(request.form.get("quantity", ""))
+        if 0 <= quantity <= 1_000_000:
+            return quantity
+    except (ValueError, TypeError):
+        pass
+    abort(400, description="Cantidad inválida")
+
+
 @app.route("/add_product", methods=["POST"])
+@login_required
 def add_product():
-    if "user" not in session:
-        return redirect("/")
-
-    name = request.form.get("name")
-    quantity = request.form.get("quantity")
-
-    try:
-        quantity = int(quantity)
-    except:
-        return "Cantidad inválida"
-
-    conn = get_db()
-    conn.execute(
-        "INSERT INTO products (name, quantity) VALUES (?, ?)",
-        (name, quantity)
-    )
-    conn.commit()
-    conn.close()
-
-    return redirect("/dashboard")
+    name = (request.form.get("name") or "").strip()
+    if not name or len(name) > 100:
+        abort(400, description="Nombre inválido")
+    with get_db() as conn:
+        conn.execute("INSERT INTO products (name, quantity) VALUES (?, ?)", (name, validated_quantity()))
+    return redirect(url_for("dashboard"))
 
 
-# ---------------- EDITAR PRODUCTO ----------------
 @app.route("/edit/<int:id>", methods=["POST"])
+@login_required
 def edit(id):
-    if "user" not in session:
-        return redirect("/")
-
-    quantity = request.form.get("quantity")
-
-    try:
-        quantity = int(quantity)
-    except:
-        return "Cantidad inválida"
-
-    conn = get_db()
-    conn.execute(
-        "UPDATE products SET quantity=? WHERE id=?",
-        (quantity, id)
-    )
-    conn.commit()
-    conn.close()
-
-    return redirect("/dashboard")
+    with get_db() as conn:
+        conn.execute("UPDATE products SET quantity=? WHERE id=?", (validated_quantity(), id))
+    return redirect(url_for("dashboard"))
 
 
-# ---------------- ELIMINAR PRODUCTO ----------------
-@app.route("/delete/<int:id>")
+@app.route("/delete/<int:id>", methods=["POST"])
+@login_required
 def delete(id):
-    if "user" not in session:
-        return redirect("/")
-
-    conn = get_db()
-    conn.execute("DELETE FROM products WHERE id=?", (id,))
-    conn.commit()
-    conn.close()
-
-    return redirect("/dashboard")
+    with get_db() as conn:
+        conn.execute("DELETE FROM products WHERE id=?", (id,))
+    return redirect(url_for("dashboard"))
 
 
-# ---------------- CHATBOT BACKEND ----------------
 @app.route("/chat", methods=["POST"])
+@login_required
 def chat():
-    if "user" not in session:
-        return jsonify({"response": "No autorizado"})
-
-    data = request.get_json()
-    if not data or "message" not in data:
-        return jsonify({"response": "Mensaje inválido"})
-
-    message = data["message"].lower()
-
-    conn = get_db()
-    products = conn.execute("SELECT * FROM products").fetchall()
-    conn.close()
-
+    data = request.get_json(silent=True) or {}
+    message = data.get("message")
+    if not isinstance(message, str) or len(message) > 500:
+        return jsonify(response="Mensaje inválido"), 400
+    with get_db() as conn:
+        products = conn.execute("SELECT * FROM products").fetchall()
+    message = message.lower()
     if "total productos" in message:
-        return jsonify({"response": f"Tenés {len(products)} productos registrados."})
-
-    if "stock bajo" in message:
-        bajos = [p["name"] for p in products if p["quantity"] < 5]
-        if bajos:
-            return jsonify({"response": "Productos con stock bajo: " + ", ".join(bajos)})
-        else:
-            return jsonify({"response": "No hay productos con stock bajo."})
-
-    if "total unidades" in message:
-        total = sum(p["quantity"] for p in products)
-        return jsonify({"response": f"Tenés {total} unidades en total."})
-
-    return jsonify({
-        "response": "Podés preguntarme: total productos, stock bajo, total unidades."
-    })
+        reply = f"Tenés {len(products)} productos registrados."
+    elif "stock bajo" in message:
+        low = [p["name"] for p in products if p["quantity"] < 5]
+        reply = "Productos con stock bajo: " + ", ".join(low) if low else "No hay productos con stock bajo."
+    elif "total unidades" in message:
+        reply = f"Tenés {sum(p['quantity'] for p in products)} unidades en total."
+    else:
+        reply = "Podés preguntar: total productos, stock bajo, total unidades."
+    return jsonify(response=reply)
 
 
-# ---------------- LOGOUT ----------------
-@app.route("/logout")
+@app.route("/logout", methods=["POST"])
+@login_required
 def logout():
     session.clear()
-    return redirect("/")
+    return redirect(url_for("home"))
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=False)
