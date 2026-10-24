@@ -50,8 +50,9 @@
         <div class="card">
             <h2>Agregar Producto</h2>
             <form action="/add_product" method="POST" class="form-inline">
-                <input type="text" name="name" placeholder="Nombre del producto" required>
-                <input type="number" name="quantity" placeholder="Cantidad" required>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="text" name="name" maxlength="120" placeholder="Nombre del producto" required>
+                <input type="number" name="quantity" min="0" placeholder="Cantidad" required>
                 <button type="submit">Agregar</button>
             </form>
         </div>
@@ -75,66 +76,34 @@
                     <td>{{ product[1] }}</td>
                     <td>
                         <form action="/edit/{{ product[0] }}" method="POST" class="edit-form">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <input type="number" name="quantity" value="{{ product[2] }}" min="0">
                             <button type="submit">Actualizar</button>
                         </form>
                     </td>
                     <td>
-                        <a href="/delete/{{ product[0] }}" 
-                           class="delete-btn"
-                           onclick="return confirm('¿Seguro que querés eliminar este producto?')">
-                           Eliminar
-                        </a>
+                        <form action="/delete/{{ product[0] }}" method="POST" onsubmit="return confirm('¿Seguro que querés eliminar este producto?')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="delete-btn">Eliminar</button>
+                        </form>
                     </td>
                 </tr>
                 {% endfor %}
             </table>
         </div>
 
-        <script>
-function sendMessage() {
-    const input = document.getElementById("user-input");
-    const box = document.getElementById("chat-box");
+        
 
-    const message = input.value.trim();
-    if (message === "") return;
 
-    // Mensaje usuario
-    box.innerHTML += `
-        <div class="user">
-            ${message}
+        <div class="card">
+            <h2>Asistente de inventario</h2>
+            <p>Consultá por total de productos, total de unidades o stock bajo.</p>
+            <div id="chat-box" aria-live="polite"></div>
+            <form id="chat-form" class="form-inline">
+                <input type="text" id="user-input" placeholder="Escribí tu consulta" maxlength="500" required>
+                <button type="submit">Consultar</button>
+            </form>
         </div>
-    `;
-
-    let respuesta = "No entendí 🤔 Probá escribir 'ayuda'.";
-
-    const msg = message.toLowerCase();
-
-    if (msg.includes("hola")) {
-        respuesta = "Hola 👋 Soy tu asistente de inventario.";
-    }
-    else if (msg.includes("total productos")) {
-        respuesta = "Tenés {{ products|length }} productos registrados.";
-    }
-    else if (msg.includes("stock bajo")) {
-        respuesta = "Los productos en rojo tienen menos de 5 unidades.";
-    }
-    else if (msg.includes("ayuda")) {
-        respuesta = "Podés preguntarme: total productos, stock bajo, ayuda.";
-    }
-
-    // Mensaje bot
-    box.innerHTML += `
-        <div class="bot">
-            ${respuesta}
-        </div>
-    `;
-
-    input.value = "";
-    box.scrollTop = box.scrollHeight;
-}
-</script>
-
 
         <footer>
             Sistema desarrollado en Flask • 2026
@@ -144,65 +113,65 @@ function sendMessage() {
 
 </div>
 
+
+
+
 <script>
-
 function searchProduct() {
-    let input = document.getElementById("searchInput");
-    let filter = input.value.toLowerCase();
-    let table = document.getElementById("productTable");
-    let tr = table.getElementsByTagName("tr");
-
-    for (let i = 1; i < tr.length; i++) {
-        let td = tr[i].getElementsByTagName("td")[0];
-        if (td) {
-            let txtValue = td.textContent || td.innerText;
-            tr[i].style.display = txtValue.toLowerCase().includes(filter) ? "" : "none";
-        }
-    }
+    const filter = document.getElementById("searchInput").value.toLowerCase();
+    const rows = document.querySelectorAll("#productTable tr");
+    rows.forEach((row, index) => {
+        if (index === 0) return;
+        const name = row.cells[0]?.textContent.toLowerCase() || "";
+        row.style.display = name.includes(filter) ? "" : "none";
+    });
 }
-
-function sendMessage() {
-    let input = document.getElementById("user-input");
-    let message = input.value.toLowerCase();
-    let chatBox = document.getElementById("chat-box");
-
-    if (message.trim() === "") return;
-
-    chatBox.innerHTML += "<div class='user'>" + message + "</div>";
-
-    let response = "";
-
-    if (message.includes("hola")) {
-        response = "Hola 👋 Soy tu asistente de inventario.";
-    }
-    else if (message.includes("total productos")) {
-        response = "Tenés {{ products|length }} productos registrados.";
-    }
-    else if (message.includes("total unidades")) {
-        response = "Revisá la tarjeta superior para ver el total de unidades.";
-    }
-    else if (message.includes("stock bajo")) {
-        response = "Los productos en rojo tienen menos de 5 unidades.";
-    }
-    else if (message.includes("agregar")) {
-        response = "Podés agregar productos desde el formulario superior.";
-    }
-    else if (message.includes("eliminar")) {
-        response = "Podés eliminar un producto desde el botón rojo en la tabla.";
-    }
-    else if (message.includes("ayuda")) {
-        response = "Comandos disponibles: hola, total productos, total unidades, stock bajo, agregar, eliminar.";
-    }
-    else {
-        response = "No entendí 🤔 Escribí 'ayuda' para ver opciones.";
-    }
-
-    chatBox.innerHTML += "<div class='bot'>" + response + "</div>";
+const chart = document.getElementById("stockChart");
+if (chart && window.Chart) {
+    new Chart(chart, {
+        type: "bar",
+        data: {
+            labels: {{ products | map(attribute='name') | list | tojson }},
+            datasets: [{
+                label: "Unidades",
+                data: {{ products | map(attribute='quantity') | list | tojson }},
+                backgroundColor: "#4f83cc"
+            }]
+        },
+        options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    });
+}
+function addMessage(kind, message) {
+    const item = document.createElement("div");
+    item.className = kind;
+    item.textContent = message;
+    const box = document.getElementById("chat-box");
+    box.appendChild(item);
+    box.scrollTop = box.scrollHeight;
+}
+document.getElementById("chat-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const input = document.getElementById("user-input");
+    const message = input.value.trim();
+    if (!message) return;
+    addMessage("user", message);
     input.value = "";
-    chatBox.scrollTop = chatBox.scrollHeight;
-}
-
+    try {
+        const reply = await fetch("/chat", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-Token": {{ csrf_token() | tojson }}
+            },
+            body: JSON.stringify({ message })
+        });
+        if (!reply.ok) throw new Error("No se pudo consultar");
+        const data = await reply.json();
+        addMessage("bot", data.response);
+    } catch {
+        addMessage("bot", "No pude responder. Volvé a intentar.");
+    }
+});
 </script>
-
 </body>
 </html>
