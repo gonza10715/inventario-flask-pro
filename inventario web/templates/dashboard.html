@@ -88,6 +88,7 @@
 
             <input type="text" id="searchInput" aria-label="Buscar producto" placeholder="Buscar producto..." 
                    oninput="searchProduct()" class="search-input">
+            <p id="searchEmpty" class="search-empty" role="status" hidden>No hay productos que coincidan con la búsqueda.</p>
 
             <table id="productTable">
                 <tr>
@@ -143,13 +144,19 @@
 
 <script>
 function searchProduct() {
-    const filter = document.getElementById("searchInput").value.toLowerCase();
+    const normalize = value => value.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase();
+    const filter = normalize(document.getElementById("searchInput").value.trim());
     const rows = document.querySelectorAll("#productTable tr");
+    let matches = 0;
     rows.forEach((row, index) => {
         if (index === 0) return;
-        const name = row.cells[0]?.textContent.toLowerCase() || "";
-        row.style.display = name.includes(filter) ? "" : "none";
+        const name = normalize(row.cells[0]?.textContent || "");
+        const visible = name.includes(filter);
+        row.hidden = !visible;
+        row.style.display = visible ? "" : "none";
+        if (visible) matches++;
     });
+    document.getElementById("searchEmpty").hidden = matches > 0;
 }
 function addMessage(kind, message) {
     const item = document.createElement("div");
