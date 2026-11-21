@@ -144,7 +144,7 @@
 
 <script>
 function searchProduct() {
-    const normalize = value => value.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase();
+    const normalize = value => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     const filter = normalize(document.getElementById("searchInput").value.trim());
     const rows = document.querySelectorAll("#productTable tr");
     let matches = 0;
