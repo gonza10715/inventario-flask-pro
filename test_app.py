@@ -1,6 +1,9 @@
 """Pruebas de integración de la demo Flask, sin tocar la base de datos real."""
 import importlib.util
+import shutil
 import sqlite3
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -169,3 +172,34 @@ def test_legacy_unowned_product_is_hidden(client):
             ("Producto anterior", 55),
         )
     assert b"Producto anterior" not in client.get("/dashboard").data
+
+
+def test_legacy_migration_keeps_products_unassigned_and_is_idempotent(tmp_path):
+    """Probar crear_db.py en una copia temporal, nunca sobre datos personales."""
+    migration = tmp_path / "crear_db.py"
+    shutil.copy2(ROOT / "inventario web" / "crear_db.py", migration)
+    database = tmp_path / "database.db"
+    with sqlite3.connect(database) as connection:
+        connection.executescript("""
+            CREATE TABLE users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL
+            );
+            CREATE TABLE products (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                quantity INTEGER NOT NULL
+            );
+            INSERT INTO products(name, quantity) VALUES ('Stock heredado', 8);
+        """)
+    for _ in range(2):
+        subprocess.run([sys.executable, str(migration)], check=True, capture_output=True,
+                       text=True)
+    with sqlite3.connect(database) as connection:
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(products)")}
+        products = connection.execute(
+            "SELECT name, quantity, owner_id FROM products"
+        ).fetchall()
+    assert "owner_id" in columns
+    assert products == [("Stock heredado", 8, None)]
