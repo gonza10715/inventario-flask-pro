@@ -83,6 +83,18 @@ def check_flow(browser, base_url, width, height):
         page.get_by_role("button", name="Eliminar").click()
         assert not page.locator("#productTable").get_by_text(product).count()
 
+        # Search should ignore accents and explain when nothing matches.
+        page.get_by_label("Nombre del producto").fill("Café molido")
+        page.get_by_label("Cantidad inicial").fill("1")
+        page.get_by_role("button", name="Agregar", exact=True).click()
+        page.get_by_label("Buscar producto").fill("cafe")
+        assert page.locator("#productTable").get_by_text("Café molido").is_visible()
+        assert not page.locator("#searchEmpty").is_visible()
+        page.get_by_label("Buscar producto").fill("ninguno-987")
+        assert page.locator("#searchEmpty").is_visible()
+        page.get_by_label("Buscar producto").fill("")
+        assert not page.locator("#searchEmpty").is_visible()
+
         document_width = page.evaluate("document.documentElement.scrollWidth")
         assert document_width <= width + 3, (
             f"Horizontal overflow at {width}px: content width={document_width}"
