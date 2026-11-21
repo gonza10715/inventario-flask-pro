@@ -367,3 +367,12 @@ input:focus-visible {
 @media (min-width: 901px) {
     .main { width: calc(100% - 260px); }
 }
+
+.search-empty {
+    color: #495d55;
+    background: #eef3ef;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin: 0 0 16px;
+    font-size: .9rem;
+}
