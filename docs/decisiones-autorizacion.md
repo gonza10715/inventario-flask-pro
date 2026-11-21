@@ -1,7 +1,7 @@
 # Decisión técnica: aislamiento de productos por cuenta
 
 **Proyecto:** Inventario Flask Pro (prototipo educativo).  
-**Estado:** implementación en revisión en el PR #2. No listo para producción.
+**Estado:** integración realizada desde el [PR #2](https://github.com/gonza10715/inventario-flask-pro/pull/2); seis pruebas de integración aprobadas en CI. Sigue sin estar listo para producción.
 
 ## El problema
 
