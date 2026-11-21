@@ -1,21 +1,25 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="es">
 <head>
-    <title>Login</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Iniciar sesión · InventarioPro</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body class="bg">
-
-<div class="card login-card">
-    <h2>Sistema Inventario</h2>
-    <form action="/login" method="POST">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="text" name="username" placeholder="Usuario" required>
-        <input type="password" name="password" placeholder="Contraseña" required>
-        <button type="submit">Ingresar</button>
+  <main class="card login-card">
+    <p class="login-eyebrow">INVENTARIOPRO</p>
+    <h1>Iniciar sesión</h1>
+    <p class="login-intro">Ingresá con tu cuenta para gestionar tus productos.</p>
+    <form action="/login" method="POST" class="login-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="username">Usuario</label>
+      <input id="username" type="text" name="username" autocomplete="username" maxlength="50" required>
+      <label for="password">Contraseña</label>
+      <input id="password" type="password" name="password" autocomplete="current-password" required>
+      <button type="submit">Ingresar</button>
     </form>
-    <a href="/register">Registrarse</a>
-</div>
-
+    <p class="login-switch">¿No tenés una cuenta? <a href="/register">Registrate</a></p>
+  </main>
 </body>
 </html>

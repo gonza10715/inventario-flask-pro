@@ -1,21 +1,26 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="es">
 <head>
-    <title>Registro</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Crear cuenta · InventarioPro</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body class="bg">
-
-<div class="card login-card">
-    <h2>Registro</h2>
-    <form action="/register_user" method="POST">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="text" name="username" minlength="3" maxlength="50" autocomplete="username" required placeholder="Usuario">
-        <input type="password" name="password" minlength="8" autocomplete="new-password" required placeholder="Contraseña">
-        <button type="submit">Crear cuenta</button>
+  <main class="card login-card">
+    <p class="login-eyebrow">INVENTARIOPRO</p>
+    <h1>Crear una cuenta</h1>
+    <p class="login-intro">Empezá con tu propio inventario de demostración.</p>
+    <form action="/register_user" method="POST" class="login-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="username">Usuario</label>
+      <input id="username" type="text" name="username" minlength="3" maxlength="50" autocomplete="username" required>
+      <label for="password">Contraseña</label>
+      <input id="password" type="password" name="password" minlength="8" autocomplete="new-password" required>
+      <p class="input-help">Mínimo 8 caracteres.</p>
+      <button type="submit">Crear cuenta</button>
     </form>
-</div>
-
+    <p class="login-switch">¿Ya tenés una cuenta? <a href="/">Ingresá</a></p>
+  </main>
 </body>
 </html>
-
