@@ -131,10 +131,10 @@ def test_users_cannot_read_or_change_each_others_products(client):
     # Un ID conocido no autoriza a un segundo usuario.
     assert second.post("/edit/1", data={
         "quantity": "100", "csrf_token": beto_token,
-    }).status_code == 302
+    }).status_code == 404
     assert second.post("/delete/1", data={
         "csrf_token": beto_token,
-    }).status_code == 302
+    }).status_code == 404
     assert b"Privado de Ana" in client.get("/dashboard").data
     with sqlite3.connect(
         client.application.view_functions["dashboard"].__globals__["BASE_DIR"] / "database.db"
