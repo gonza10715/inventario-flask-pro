@@ -56,7 +56,7 @@ python -m pytest -q test_app.py
 
 La configuración `.github/workflows/tests.yml` ejecuta las pruebas en GitHub Actions con cada push a `main` y pull request. **La presencia de tests no implica que hayan pasado: verificá la última ejecución de Actions.**
 
-### Decisiones y límites a discutir en una entrevista
+### Arquitectura y limitaciones
 
 - **SQLite** facilita practicar SQL y consultas parametrizadas sin servidor externo; para varias personas escribiendo simultáneamente se debe evaluar otra arquitectura.
 - **Sesión de Flask y CSRF**: protegen las operaciones del prototipo, pero no sustituyen controles de despliegue, autorización por recurso ni auditoría.
