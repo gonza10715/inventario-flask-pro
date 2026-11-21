@@ -5,7 +5,7 @@ Proyecto de aprendizaje y portfolio de **Gonzalo Martínez**, desarrollado con P
 ## Funcionalidades
 
 - Registro e inicio de sesión con contraseñas protegidas mediante hash.
-- Panel con tabla, búsqueda y gráfico de stock.
+- Panel con tabla, búsqueda y resumen gráfico de stock generado en HTML/CSS, sin dependencia de servicios externos.
 - Alta, edición de cantidad y eliminación de productos.
 - Asistente de inventario basado en reglas: productos, unidades totales y stock bajo.
 - Formularios protegidos contra solicitudes CSRF y validaciones básicas de entradas.
@@ -54,7 +54,7 @@ python -m pip install -r "inventario web/requirements.txt" pytest
 python -m pytest -q test_app.py
 ```
 
-La configuración `.github/workflows/tests.yml` ejecuta las pruebas en GitHub Actions con cada push a `main` y pull request. **La presencia de tests no implica que hayan pasado: verificá la última ejecución de Actions.**
+La configuración `.github/workflows/tests.yml` ejecuta las pruebas en GitHub Actions con cada push a `main` y pull request. También verifica en Chromium el registro, el inicio de sesión, las operaciones de inventario y el cierre de sesión en tamaños de PC y celular, utilizando una base de datos temporal. **La presencia de tests no implica que hayan pasado: verificá la última ejecución de Actions.**
 
 ### Arquitectura y limitaciones
 
