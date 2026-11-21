@@ -17,6 +17,9 @@ def client(tmp_path, monkeypatch):
     spec = importlib.util.spec_from_file_location("inventario_app", APP_FILE)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    # Al cargar app.py por importlib, Flask puede inferir mal la ruta de
+    # las plantillas; conservamos la ruta real del proyecto para los tests.
+    module.app.root_path = str(APP_FILE.parent)
     monkeypatch.setattr(module, "BASE_DIR", tmp_path)
     with sqlite3.connect(tmp_path / "database.db") as connection:
         connection.executescript("""
