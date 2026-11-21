@@ -23,7 +23,8 @@ def client(tmp_path, monkeypatch):
             CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL, password TEXT NOT NULL);
             CREATE TABLE products (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL, quantity INTEGER NOT NULL,\n                owner_id INTEGER REFERENCES users(id));
+                name TEXT NOT NULL, quantity INTEGER NOT NULL,
+                owner_id INTEGER REFERENCES users(id));
         """)
     module.app.config.update(TESTING=True, SECRET_KEY="testing-only-secret")
     return module.app.test_client()
