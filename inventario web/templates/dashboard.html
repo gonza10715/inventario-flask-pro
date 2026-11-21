@@ -1,6 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Panel Profesional - Inventario</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -15,7 +17,10 @@
         <h2>📦 InventarioPro</h2>
         <p>Bienvenido, {{ user }}</p>
         <a href="/dashboard">Dashboard</a>
-        <a href="/logout">Cerrar sesión</a>
+        <form action="/logout" method="POST" class="logout-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit">Cerrar sesión</button>
+        </form>
     </div>
 
     <!-- CONTENIDO -->
