@@ -21,6 +21,17 @@ with sqlite3.connect(db_path) as conn:
         )
     """)
 
+    # Los productos heredados no tenían propietario. Permanecen sin asignar,
+    # para impedir acceso accidental entre cuentas. Respaldar antes de migrar.
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(products)")}
+    if "owner_id" not in columns:
+        conn.execute(
+            "ALTER TABLE products ADD COLUMN owner_id INTEGER REFERENCES users(id)"
+        )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_products_owner ON products(owner_id)"
+    )
+
     # Retirar la cuenta demo creada con credenciales públicas en versiones anteriores.
     conn.execute("DELETE FROM users WHERE username = ? AND password = ?", ("admin", "1234"))
 

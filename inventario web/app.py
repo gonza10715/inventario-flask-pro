@@ -21,6 +21,7 @@ app.config.update(
 def get_db():
     conn = sqlite3.connect(BASE_DIR / "database.db")
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 
@@ -44,7 +45,7 @@ def protect_forms():
 
 @app.route("/")
 def home():
-    if "user" in session:
+    if "user_id" in session:
         return redirect("/dashboard")
     return render_template("login.html")
 
@@ -54,12 +55,13 @@ def login():
     username = request.form.get("username", "").strip()
     password = request.form.get("password", "")
     conn = get_db()
-    user = conn.execute("SELECT username, password FROM users WHERE username = ?", (username,)).fetchone()
+    user = conn.execute("SELECT id, username, password FROM users WHERE username = ?", (username,)).fetchone()
     conn.close()
     if not user or not check_password_hash(user["password"], password):
         return "Usuario o contraseña incorrectos", 401
     session.clear()
     session["user"] = user["username"]
+    session["user_id"] = user["id"]
     return redirect("/dashboard")
 
 
@@ -90,10 +92,11 @@ def register_user():
 
 @app.route("/dashboard")
 def dashboard():
-    if "user" not in session:
+    if "user_id" not in session:
         return redirect("/")
     conn = get_db()
-    products = conn.execute("SELECT id, name, quantity FROM products ORDER BY id DESC").fetchall()
+    products = conn.execute("SELECT id, name, quantity FROM products WHERE owner_id = ? ORDER BY id DESC",
+                            (session["user_id"],)).fetchall()
     conn.close()
     return render_template("dashboard.html", products=products, user=session["user"])
 
@@ -108,7 +111,7 @@ def valid_quantity(raw):
 
 @app.route("/add_product", methods=["POST"])
 def add_product():
-    if "user" not in session:
+    if "user_id" not in session:
         return redirect("/")
     name = request.form.get("name", "").strip()
     quantity = valid_quantity(request.form.get("quantity"))
@@ -116,7 +119,8 @@ def add_product():
         return "Nombre o cantidad inválida", 400
     conn = get_db()
     try:
-        conn.execute("INSERT INTO products (name, quantity) VALUES (?, ?)", (name, quantity))
+        conn.execute("INSERT INTO products (name, quantity, owner_id) VALUES (?, ?, ?)",
+                     (name, quantity, session["user_id"]))
         conn.commit()
     finally:
         conn.close()
@@ -125,14 +129,19 @@ def add_product():
 
 @app.route("/edit/<int:id>", methods=["POST"])
 def edit(id):
-    if "user" not in session:
+    if "user_id" not in session:
         return redirect("/")
     quantity = valid_quantity(request.form.get("quantity"))
     if quantity is None:
         return "Cantidad inválida", 400
     conn = get_db()
     try:
-        conn.execute("UPDATE products SET quantity = ? WHERE id = ?", (quantity, id))
+        result = conn.execute(
+            "UPDATE products SET quantity = ? WHERE id = ? AND owner_id = ?",
+            (quantity, id, session["user_id"]),
+        )
+        if result.rowcount == 0:
+            abort(404, description="Producto no encontrado.")
         conn.commit()
     finally:
         conn.close()
@@ -141,11 +150,16 @@ def edit(id):
 
 @app.route("/delete/<int:id>", methods=["POST"])
 def delete(id):
-    if "user" not in session:
+    if "user_id" not in session:
         return redirect("/")
     conn = get_db()
     try:
-        conn.execute("DELETE FROM products WHERE id = ?", (id,))
+        result = conn.execute(
+            "DELETE FROM products WHERE id = ? AND owner_id = ?",
+            (id, session["user_id"]),
+        )
+        if result.rowcount == 0:
+            abort(404, description="Producto no encontrado.")
         conn.commit()
     finally:
         conn.close()
@@ -154,14 +168,15 @@ def delete(id):
 
 @app.route("/chat", methods=["POST"])
 def chat():
-    if "user" not in session:
+    if "user_id" not in session:
         return jsonify({"response": "No autorizado"}), 401
     data = request.get_json(silent=True)
     if not isinstance(data, dict) or not isinstance(data.get("message"), str):
         return jsonify({"response": "Mensaje inválido"}), 400
     message = data["message"][:500].lower()
     conn = get_db()
-    products = conn.execute("SELECT name, quantity FROM products").fetchall()
+    products = conn.execute("SELECT name, quantity FROM products WHERE owner_id = ?",
+                            (session["user_id"],)).fetchall()
     conn.close()
     if "total productos" in message:
         response = f"Tenés {len(products)} productos registrados."
