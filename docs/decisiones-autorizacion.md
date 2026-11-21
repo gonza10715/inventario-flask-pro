@@ -63,6 +63,3 @@ Para recuperar productos heredados, un responsable debe verificar su propiedad y
 
 No hay roles, organizaciones, historial de movimientos, recuperación de contraseñas, controles contra intentos repetidos de login ni despliegue endurecido. SQLite funciona bien para este prototipo local, pero requiere evaluación de concurrencia para un sistema comercial.
 
-## Para explicar en una entrevista
-
-> Elegí asociar cada producto a un usuario y filtrar las consultas también en UPDATE y DELETE. No alcanza con ocultarlo en el frontend: el backend debe impedir cambios aunque alguien conozca el ID. La migración deja productos anteriores sin asignar para evitar filtraciones, y lo verifico mediante pruebas con dos sesiones.
