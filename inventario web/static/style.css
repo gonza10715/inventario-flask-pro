@@ -362,3 +362,8 @@ input:focus-visible {
     .stock-bar-row { grid-template-columns: minmax(65px, 1fr) minmax(30px, 1.6fr) auto; gap: 8px; }
     .stock-bar-name { font-size: .8rem; }
 }
+
+/* The fixed sidebar must not increase the document width on desktop. */
+@media (min-width: 901px) {
+    .main { width: calc(100% - 260px); }
+}
