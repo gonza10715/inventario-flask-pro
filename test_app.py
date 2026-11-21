@@ -27,8 +27,17 @@ def client(tmp_path, monkeypatch):
 
 
 def csrf(client):
+    # El login rota la sesión y descarta el token CSRF anterior.
+    # Visitar el panel genera uno nuevo en la plantilla para formularios.
     with client.session_transaction() as session:
-        return session["_csrf_token"]
+        token = session.get("_csrf_token")
+    if token is None:
+        response = client.get("/dashboard")
+        assert response.status_code == 200
+        with client.session_transaction() as session:
+            token = session.get("_csrf_token")
+    assert token is not None
+    return token
 
 
 def test_public_pages_and_protected_routes(client):
@@ -127,7 +136,13 @@ def test_users_cannot_read_or_change_each_others_products(client):
         "csrf_token": beto_token,
     }).status_code == 302
     assert b"Privado de Ana" in client.get("/dashboard").data
-    assert b"100" not in client.get("/dashboard").data
+    with sqlite3.connect(
+        client.application.view_functions["dashboard"].__globals__["BASE_DIR"] / "database.db"
+    ) as connection:
+        current_quantity = connection.execute(
+            "SELECT quantity FROM products WHERE id = 1"
+        ).fetchone()[0]
+    assert current_quantity == 7
 
     response = second.post("/chat", json={"message": "total productos"},
                            headers={"X-CSRF-Token": beto_token})
