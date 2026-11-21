@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parent
 APP_FILE = ROOT / "inventario web" / "app.py"
 
 
@@ -20,7 +20,7 @@ def client(tmp_path, monkeypatch):
             CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL, password TEXT NOT NULL);
             CREATE TABLE products (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL, quantity INTEGER NOT NULL);
+                name TEXT NOT NULL, quantity INTEGER NOT NULL,\n                owner_id INTEGER REFERENCES users(id));
         """)
     module.app.config.update(TESTING=True, SECRET_KEY="testing-only-secret")
     return module.app.test_client()
@@ -89,3 +89,68 @@ def test_login_required_even_with_valid_csrf(client):
     response = client.post("/chat", json={"message": "total productos"},
                            headers={"X-CSRF-Token": token})
     assert response.status_code == 401
+
+
+def test_users_cannot_read_or_change_each_others_products(client):
+    """Integración con dos sesiones independientes y una sola base de datos."""
+    second = client.application.test_client()
+
+    for current, username in ((client, "ana"), (second, "beto")):
+        assert current.get("/").status_code == 200
+        token = csrf(current)
+        assert current.post("/register_user", data={
+            "username": username,
+            "password": "clave-de-prueba-123",
+            "csrf_token": token,
+        }).status_code == 302
+        assert current.post("/login", data={
+            "username": username,
+            "password": "clave-de-prueba-123",
+            "csrf_token": token,
+        }).status_code == 302
+
+    ana_token = csrf(client)
+    beto_token = csrf(second)
+    assert client.post("/add_product", data={
+        "name": "Privado de Ana",
+        "quantity": "7",
+        "csrf_token": ana_token,
+    }).status_code == 302
+    assert b"Privado de Ana" in client.get("/dashboard").data
+    assert b"Privado de Ana" not in second.get("/dashboard").data
+
+    # Un ID conocido no autoriza a un segundo usuario.
+    assert second.post("/edit/1", data={
+        "quantity": "100", "csrf_token": beto_token,
+    }).status_code == 302
+    assert second.post("/delete/1", data={
+        "csrf_token": beto_token,
+    }).status_code == 302
+    assert b"Privado de Ana" in client.get("/dashboard").data
+    assert b"100" not in client.get("/dashboard").data
+
+    response = second.post("/chat", json={"message": "total productos"},
+                           headers={"X-CSRF-Token": beto_token})
+    assert "0 productos" in response.json["response"]
+    response = client.post("/chat", json={"message": "total unidades"},
+                           headers={"X-CSRF-Token": ana_token})
+    assert "7 unidades" in response.json["response"]
+
+
+def test_legacy_unowned_product_is_hidden(client):
+    client.get("/")
+    token = csrf(client)
+    client.post("/register_user", data={
+        "username": "user1", "password": "password-123",
+        "csrf_token": token,
+    })
+    client.post("/login", data={
+        "username": "user1", "password": "password-123",
+        "csrf_token": token,
+    })
+    with sqlite3.connect(client.application.view_functions["dashboard"].__globals__["BASE_DIR"] / "database.db") as connection:
+        connection.execute(
+            "INSERT INTO products(name, quantity, owner_id) VALUES (?, ?, NULL)",
+            ("Producto anterior", 55),
+        )
+    assert b"Producto anterior" not in client.get("/dashboard").data
