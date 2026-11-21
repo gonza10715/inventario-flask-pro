@@ -23,7 +23,7 @@ Para mantener las sesiones activas al reiniciar el servidor, configurá la varia
 
 ### Si ya tenías una base de datos
 
-Volvé a ejecutar `python crear_db.py`. El script transforma las contraseñas antiguas en hashes y retira la cuenta de prueba `admin / 1234` si conserva esa contraseña. No borra los demás usuarios ni productos.
+**Primero respaldá `database.db` y detené la aplicación.** Después ejecutá `python crear_db.py`. El script transforma contraseñas antiguas en hashes y retira la cuenta de prueba `admin / 1234` si conserva esa contraseña. También agrega `owner_id` a los productos anteriores: **esos registros permanecen guardados pero quedan ocultos hasta que su propietario sea verificado y asignado de forma explícita**. No lo ejecutes sobre información real sin probar antes la migración en una copia.
 
 ## Seguridad y alcance
 
@@ -60,20 +60,20 @@ La configuración `.github/workflows/tests.yml` ejecuta las pruebas en GitHub Ac
 
 - **SQLite** facilita practicar SQL y consultas parametrizadas sin servidor externo; para varias personas escribiendo simultáneamente se debe evaluar otra arquitectura.
 - **Sesión de Flask y CSRF**: protegen las operaciones del prototipo, pero no sustituyen controles de despliegue, autorización por recurso ni auditoría.
-- **Aislamiento por cuenta en desarrollo:** la rama `feature/aislamiento-inventario-usuarios` introduce `owner_id` y filtra lectura, edición, eliminación y consultas del asistente por usuario. **No implementa roles, organizaciones ni permisos empresariales.**
+- **Aislamiento por cuenta:** desde el [PR #2](https://github.com/gonza10715/inventario-flask-pro/pull/2) se usa `owner_id` para filtrar lectura, edición, eliminación y consultas del asistente por usuario. **No implementa roles, organizaciones ni permisos empresariales.**
 - **Asistente basado en reglas:** no usa un modelo de lenguaje ni una API de IA.
-- **Próxima mejora técnica:** revisar el resultado del CI, elaborar un procedimiento de reasignación auditada de productos heredados y reforzar el manejo de errores.
+- **Próxima mejora técnica:** elaborar un procedimiento de reasignación auditada de productos heredados, reforzar el manejo de errores y ampliar permisos.
 
-### Cambio en revisión: productos privados por cuenta
+### Productos privados por cuenta
 
-La rama `feature/aislamiento-inventario-usuarios` incorpora una columna `products.owner_id` y limita todas las consultas y modificaciones de productos al identificador del usuario autenticado. Las pruebas de integración incluyen dos sesiones que intentan consultar y modificar el mismo producto.
+La implementación incorporada mediante el PR #2 agrega una columna `products.owner_id` y limita todas las consultas y modificaciones de productos al identificador del usuario autenticado. Las pruebas de integración incluyen dos sesiones que intentan consultar y modificar el mismo producto.
 
 **Migración de bases existentes (importante):**
 
 1. Detené la aplicación y respaldá `inventario web/database.db` antes de ejecutar cualquier migración.
-2. En la rama de trabajo, ejecutá `python "inventario web/crear_db.py"` desde la raíz del repositorio.
+2. En la versión principal, ejecutá `python "inventario web/crear_db.py"` desde la raíz del repositorio.
 3. El script agrega `owner_id` si falta. Los productos que existían antes quedan con `owner_id = NULL`, **sin acceso para ningún usuario**.
 4. No reasignamos esos datos automáticamente a la primera cuenta: eso podría mostrar información privada a la persona equivocada. Es necesario identificar su propietario legítimo y preparar una reasignación explícita.
-5. Este flujo está en revisión, no se considera apto para uso comercial. No importes una base real sin respaldo ni verificación de la migración.
+5. La migración pasó una prueba automatizada con datos ficticios. **El producto sigue sin ser apto para uso comercial.** No importes una base real sin respaldo ni verificación manual.
 
-Para revisar la implementación y su motivación, consultá el pull request de esta rama.
+Para revisar el razonamiento, consultá el [PR #2](https://github.com/gonza10715/inventario-flask-pro/pull/2) y [las decisiones técnicas](docs/decisiones-autorizacion.md). En GitHub Actions se verificaron 6 pruebas exitosas en la ejecución #13 previa a la integración.
