@@ -136,8 +136,12 @@ def edit(id):
         return "Cantidad inválida", 400
     conn = get_db()
     try:
-        conn.execute("UPDATE products SET quantity = ? WHERE id = ? AND owner_id = ?",
-                     (quantity, id, session["user_id"]))
+        result = conn.execute(
+            "UPDATE products SET quantity = ? WHERE id = ? AND owner_id = ?",
+            (quantity, id, session["user_id"]),
+        )
+        if result.rowcount == 0:
+            abort(404, description="Producto no encontrado.")
         conn.commit()
     finally:
         conn.close()
@@ -150,7 +154,12 @@ def delete(id):
         return redirect("/")
     conn = get_db()
     try:
-        conn.execute("DELETE FROM products WHERE id = ? AND owner_id = ?", (id, session["user_id"]))
+        result = conn.execute(
+            "DELETE FROM products WHERE id = ? AND owner_id = ?",
+            (id, session["user_id"]),
+        )
+        if result.rowcount == 0:
+            abort(404, description="Producto no encontrado.")
         conn.commit()
     finally:
         conn.close()
