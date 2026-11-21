@@ -207,3 +207,26 @@ def test_legacy_migration_keeps_products_unassigned_and_is_idempotent(tmp_path):
         ).fetchall()
     assert "owner_id" in columns
     assert products == [("Stock heredado", 8, None)]
+
+
+def test_logout_requires_post_and_csrf(client):
+    client.get("/")
+    token = csrf(client)
+    client.post("/register_user", data={
+        "username": "logout_test", "password": "clave-segura-123",
+        "csrf_token": token,
+    })
+    assert client.post("/login", data={
+        "username": "logout_test", "password": "clave-segura-123",
+        "csrf_token": token,
+    }).status_code == 302
+    assert client.get("/dashboard").status_code == 200
+    token = csrf(client)
+
+    # GET cannot mutate session state.
+    assert client.get("/logout").status_code == 405
+    assert client.get("/dashboard").status_code == 200
+    assert client.post("/logout").status_code == 400
+    assert client.get("/dashboard").status_code == 200
+    assert client.post("/logout", data={"csrf_token": token}).status_code == 302
+    assert client.get("/dashboard").status_code == 302

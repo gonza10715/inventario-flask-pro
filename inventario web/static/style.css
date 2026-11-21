@@ -186,3 +186,56 @@ footer {
     border-radius: 6px;
     border: 1px solid #ccc;
 }
+
+/* Logout uses the same navigation styling as a sidebar link. */
+.sidebar .logout-form {
+    margin: 0;
+}
+.sidebar .logout-form button {
+    display: block;
+    width: 100%;
+    margin: 10px 0;
+    padding: 8px;
+    background: transparent;
+    border: 0;
+    color: #fff;
+    text-align: left;
+    font: inherit;
+}
+.sidebar .logout-form button:hover,
+.sidebar .logout-form button:focus-visible {
+    background: #132c50;
+}
+
+* { box-sizing: border-box; }
+
+@media (max-width: 900px) {
+    .sidebar {
+        position: static;
+        width: 100%;
+        height: auto;
+    }
+    .layout { flex-direction: column; }
+    .main {
+        width: 100%;
+        min-width: 0;
+        margin-left: 0;
+        padding: 24px 16px;
+    }
+    .stats { flex-wrap: wrap; }
+    .stat-card { flex: 1 1 180px; }
+    .form-inline { flex-wrap: wrap; }
+    .form-inline input { min-width: 150px; }
+    .card { padding: 18px; }
+    #productTable { display: block; overflow-x: auto; }
+}
+
+@media (max-width: 520px) {
+    .sidebar { padding: 15px; }
+    .main { padding: 16px 10px; }
+    .stats { flex-direction: column; }
+    .card { padding: 14px; }
+    .edit-form { display: flex; flex-wrap: wrap; gap: 6px; }
+    .edit-form input { min-width: 85px; max-width: 125px; }
+    th, td { padding: 9px; }
+}
