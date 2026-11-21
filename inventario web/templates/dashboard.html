@@ -50,8 +50,8 @@
 
         <section class="card" aria-labelledby="chart-heading">
             <h2 id="chart-heading">Resumen de stock</h2>
-            {% set max_stock = products | map(attribute='quantity') | max(default=0) %}
             {% if products %}
+            {% set max_stock = products | map(attribute='quantity') | max %}
             <ul class="stock-bars" aria-label="Unidades por producto">
                 {% for product in products[:12] %}
                 <li class="stock-bar-row">
